@@ -282,19 +282,8 @@ function [v1,xz]=SolveVIS(beta_disc,xvec,zvec,pmat,v0)
                 
                 % The next lines implement linear interpolation between grid points
                 if VI_IP==1
-                    if js==1 % boundary optimum, ax=bx=a(1)
-                        ax=xvec(1);
-                        bx=ax+eps1*(xvec(2)-xvec(1));
-                        cx=xvec(2);
-                        if rhs_bellman(j,xvec(i),bx)<rhs_bellman(j,xvec(i),ax)
-                            h2(i,j)=xvec(1);
-                        else
-                            h2(i,j)=GSS(@VI_valuefunction,xvec(1),xvec(2));
-                        end
-                    elseif js==nx % boundary optimum, bx=cx=a(n)
-                        
-                        %Continue here
-                        
+                    if js==1 % boundary optimum, ax=bx=a[1]
+                        a
                     end
                 end
             end
