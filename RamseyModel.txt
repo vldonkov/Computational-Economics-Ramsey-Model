@@ -1,0 +1,25 @@
+27-Oct-2020 18:42:43
+
+Parameters of the model:
+alpha     = 0.2700
+beta_disc = 0.9940
+delta     = 0.0110
+eta       = 2.0000
+rho       = 0.9000
+sigma     = 0.0072
+
+Parameters of the algorithm:
+nvec   = [250, 1000, 10000]
+kmin_g = 0.600
+kmax_g = 1.400
+kmin_e = 0.800
+kmax_e = 1.200
+nobs_e = 200
+nz     = 31
+size   = 5.500
+
+Important parameters of function SolveVIS:
+Max  = 1000
+eps  = 0.0100
+stop = 50
+IP   = 0

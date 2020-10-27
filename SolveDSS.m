@@ -1,45 +1,44 @@
 
-                                %RamseyModel
-
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-
-%{
-    Purpose: Solve a stochastic infinite-horizon Ramsey model via value
-             function iterations with/without linear interpolation on a
-             discrete grid.
-
-                1. one-period utility function
-                   
-                   u(c)=(c^(1-eta)-1)/(1-eta)
-
-                   or
-
-                   u(c)=ln(c)
-                     
-                   for eta=1
-
-                2. technology
-
-                    Y = Z*K^alpha
-
-                3. transition equation
-
-                   K' = Y + (1-delta)*K - C
-
-                4. productivity shock
-
-                   ln(Z[t]) = rho*ln(Z[t-1])+ sigma*eps[t];
-
-    In this version of the program, the previous value function is used to
-    initialize the value function for the next, finer grid.
-
-
-
-%}
-
+%% Clear workspace, command window and close all figures 
 clear all;
 close all;
 clc;
+
+
+                %% Stochastic Infinite-Horizon Ramsey Model
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%   Purpose: Solve a stochastic infinite-horizon Ramsey model via value
+%            function iterations with/without linear interpolation on a
+%            discrete grid.
+%
+%            1. one-period utility function
+%                   
+%            u(c)=(c^(1-eta)-1)/(1-eta)
+%
+%            or
+%
+%            u(c)=ln(c)
+%                     
+%            for eta=1
+%
+%            2. technology
+%
+%            Y = Z*K^alpha
+%
+%            3. transition equation
+%
+%            K' = Y + (1-delta)*K - C
+%
+%            4. productivity shock
+%
+%            ln(Z(t)) = rho*ln(Z(t-1))+ sigma*eps(t)
+%
+%   Remarks: In this version of the program, the previous value function is
+%            used to initialize the value function for the next, finer
+%            grid.
+
 
 % Parameters of the model
 alpha=0.27; % elasticity of production with respect to capital
@@ -52,8 +51,8 @@ sigma=0.0072; % parameter of continious-valued AR(1)-process
 % Parameters of the algorithm
 nz=31; % number of grid points for the productivity shock
 size=5.5; % size of the grid for the productivity shock
-nk=250; % number of grid points for the capital stock
-nvec=[250 1000 10000]; % Vector with different values of nk
+nvec=[250 1000 10000]; % Vector with different values of the number of
+                       % grid points for the capital stock
 kmin_g=0.60; % lower bound of the grid for the capital stock
 kmax_g=1.40; % upper bound of the grid for the capital stock
 global VI_IP VI_nc;
@@ -72,7 +71,6 @@ nobs_e=200; % the number of residuals to be computed
 % function SolveVIS
 global VI_xvec VI_ymat VI_zvec VI_pmat VI_beta_disc VI_xex VI_zex;
 global VI_eps VI_Max;
-
 VI_xvec=0; % stores the x values used in interpolation
 VI_ymat=0; % stores the y values uses in interpolation
 VI_zvec=0; % stores the z values used in interpolation
@@ -82,13 +80,41 @@ VI_xex=0; % stores information to write the value function as a function of
           % x(i) alone
 VI_zex=0; % stores information to write the value function as a function of
           % x(i) alone
-
 VI_eps=0.01; % stopping criterium
 VI_Max=1000; % maximal number of iterations
 
 
-% Here beings the actual algorithm of the Ramsey model
+% Open file and write initial information
+file = fopen("RamseyModel.txt","w");
+fprintf(file,"%s\n",datetime('now'));
+fprintf(file,"\n");
+fprintf(file,"Parameters of the model:\n");
+fprintf(file,"alpha     = %.4f\n",alpha);
+fprintf(file,"beta_disc = %.4f\n",beta_disc);
+fprintf(file,"delta     = %.4f\n",delta);
+fprintf(file,"eta       = %.4f\n",eta);
+fprintf(file,"rho       = %.4f\n",rho);
+fprintf(file,"sigma     = %.4f\n",sigma);
+fprintf(file,"\n");
+fprintf(file,"Parameters of the algorithm:\n");
+fprintf(file,"nvec   = [%d, %d, %d]\n",nvec);
+fprintf(file,"kmin_g = %.3f\n",kmin_g);
+fprintf(file,"kmax_g = %.3f\n",kmax_g);
+fprintf(file,"kmin_e = %.3f\n",kmin_e);
+fprintf(file,"kmax_e = %.3f\n",kmax_e);
+fprintf(file,"nobs_e = %d\n",nobs_e);
+fprintf(file,"nz     = %d\n",nz);
+fprintf(file,"size   = %.3f\n",size);
+fprintf(file,"\n");
+fprintf(file,"Important parameters of function SolveVIS:\n");
+fprintf(file,"Max  = %d\n",VI_Max);
+fprintf(file,"eps  = %.4f\n",VI_eps);
+fprintf(file,"stop = %d\n",VI_nc);
+fprintf(file,"IP   = %d\n",VI_IP);
+fclose(file);
 
+
+% Here beings the actual algorithm of the stochastic Ramsey model
 
 % Compute Markov chain approximation
 [zgrid,pmat]=MarkovAR(size,nz,rho,sigma);
@@ -107,12 +133,8 @@ kmax=((1-beta_disc*(1-delta))/(alpha*beta_disc*zmax))^(1/(alpha-1));
 
 % Compute stationary solution of deterministic model and intialize the
 % value function
-
-% Stationary capital stock
-kstar=((1- beta_disc*(1-delta))/alpha*beta_disc)^(1/(alpha-1));
-
-% Stationary level of consumption
-cstar=kstar^alpha - delta*kstar;
+kstar=((1- beta_disc*(1-delta))/alpha*beta_disc)^(1/(alpha-1)); % Stationary capital stock
+cstar=kstar^alpha - delta*kstar; % Stationary level of consumption
 
 
 kmin_g=kmin_g*kmin;
@@ -128,10 +150,52 @@ policy = zeros(nobs_e,nobs_e,lmax);
 emat = zeros(nobs_e,nobs_e,lmax);
 
 % Different ways to initialize v0, uncomment to try the others
-nk=nvec[1];
+nk=nvec(1);
 v0=rf(1,kstar,kstar)/(1-beta_disc); % stationary solution
 v0=ones(nk,nz).*v0;
 
+%v0=zeros(nk,nz); % the zeros function
+%for i=1:nk % maintain the given capital stock
+%    for j=1:nz
+%        knext=kgrid(i);
+%        v0(i,j)=rf(zgrid(j),kgrid(i),knext);
+%    end
+%end
+
+% Iterations over different nk start here
+s2=0; % stores time needed to obtain initial v from previous v
+
+tottime=zeros(lmax,1);
+
+for l=1:lmax
+    nk=nvec(l);
+    N=nk;
+    start_val=kmin_g;
+    inc = (kmax_g-kmin_g)/(nk-1);
+    stop_val = (N-1)*inc + start_val;
+    kgrid=start_val:inc:stop_val;
+    
+    % Solve for the policy function
+    tic;
+    [v1,hmati]=SolveVIS(beta_disc,kgrid,zgrid,pmat,v0);
+    s1=toc;
+    
+    if VI_IP==1
+        hmat=hmati;
+    else
+        hmat=zeros(nk,nz);
+        for i=1:nk
+            for j=1:nz
+                hmat(i,j)=kgrid(hmati(i,j));
+            end
+        end
+    end
+    
+    %Continue here
+    
+    
+end
+
 
 
 
@@ -144,7 +208,7 @@ v0=ones(nk,nz).*v0;
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 
-                                %SolveVIS
+                                %% SolveVIS
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
@@ -292,14 +356,25 @@ function [v1,xz]=SolveVIS(beta_disc,xvec,zvec,pmat,v0)
                             h2(i,j)=GSS(@VI_valuefunction,xvec(1),xvec(2));
                         end
                     elseif js==nx % boundary optimum, bx=cx=a(n)
-                        
-                        %Continue here
-                        
+                        ax=xvec(nx-1);
+                        cx=xvec(nx);
+                        bx=cx-eps1*(xvec(nx)-xvec(nx-1));
+                        if rhs_bellman(j,xvec(i),bx)<rhs_bellman(j,xvec(i),cx)
+                            h2(i,j)=xvec(nx);
+                        else
+                            h2(i,j)=GSS(@VI_valuefunction,xvec(nx-1),xvec(nx));
+                        end
+                    else
+                        h2(i,j)=GSS(@VI_valuefunction,xvec(js-1),xvec(js+1));
                     end
+                    
+                    v2(i,j)=rhs_bellman(j,xvec(i),h2(i,j));
+                else
+                    h2(i,j)=js;
                 end
-            end
-            
-        end 
+                
+            end % end loop over xvec    
+        end % end loop over zvec
         
         if VI_IP==0
             % compute stopping criterium 2
@@ -313,15 +388,42 @@ function [v1,xz]=SolveVIS(beta_disc,xvec,zvec,pmat,v0)
         end
         dv=max(max(abs(v2-v1)));
         
+        clc;
+        fprintf("Iteration #= %d\n", t)
+        fprintf("Largest element in v1-v0= %f\n", dv)
+        if VI_IP==0
+            printf("# of indices that have changed: %d\n", di)
+            printf("# of consecutive iterations with constant policy function= %d\n", nc)
+        end
         v1=v2;
         if VI_IP==1
             VI_ymat=v1;
         end
         t=t+1;    
     end
+    fprintf("\n")
+    if t>VI_Max
+        warning("Maximum number of iterations exceeded. Change VI_Max!")
+        warning("The computed solution may be inaccurate.Press any key...")
+        pause;
+    end
+    if VI_IP==0
+        if min(min(h1))==1
+            warning("Policy function hits lower bound of grid")
+        end
+        if max(max(h1))==nx
+            warning("Policy function hits upper bound of grid")
+        end
+    else
+        if min(min(h2))==xvec(1)
+            warning("Policy function hits lower bound of grid")
+        end
+        if max(max(h2))==xvec(nx)
+            warning("Policy function hits upper bound of grid")
+        end
+    end
     
-    
-    
+    xz=h2;
     
 end
 
