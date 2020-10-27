@@ -19,6 +19,10 @@
 
 ------------------------------------------------------------------------------ @
 
+#include Function.src
+#include Optimization.src
+
+
 @------------------------------------ MarkovAR ---------------------------------
 
    Alfred Maussner
@@ -96,9 +100,9 @@ endp;
               the Bellman equation.
 
 
-      Usage:  {v1,xz}=SolveVIS(beta,xvec,zvec,pmat,v0);
+      Usage:  {v1,xz}=SolveVIS(beta_disc,xvec,zvec,pmat,v0);
 
-  Input : beta:= the discount factor from the agent's life-time utility function.
+  Input : beta_disc:= the discount factor from the agent's life-time utility function.
 
           xvec:= n by 1 column vector with elements in ascending order that
                  represent valid elements of the variable x.
@@ -133,7 +137,7 @@ declare matrix _VI_xvec?=0;  @ stores the x values used in interpolation @
 declare matrix _VI_ymat?=0;  @ stores the y values uses in interpolation @
 declare matrix _VI_zvec?=0;  @ stores the z values used in interpolation @
 declare matrix _VI_pmat?=0;  @ stores the transition matrix used in interpolation @
-declare matrix _VI_beta?=0;  @ stores information uses for linear interpolation @
+declare matrix _VI_beta_disc?=0;  @ stores information uses for linear interpolation @
 declare matrix _VI_der?=0;   @ stores the derivative information used in cubic interpolation @ 
 declare matrix _VI_xex?=0;   @ stores information to write the value function as a function of x[i] alone @
 declare matrix _VI_zex?=0;   @ stores information to write the value function as a function of x[i] alone @
@@ -146,7 +150,7 @@ declare matrix _VI_clear?=1;   @ clear screen for printing @
   
 /* Here beings the code for Solve_VI_S */
 
-proc(2)=SolveVIS(beta,xvec,zvec,pmat,v0);
+proc(2)=SolveVIS(beta_disc,xvec,zvec,pmat,v0);
                    
    local i, j, l, v1, v2, v3, h1, h2, t, nx, nz, dv, eps1, di, nc, w, js, jmin, jmax, jl, ju,
          ax, cx, bx, umat;
@@ -155,9 +159,9 @@ proc(2)=SolveVIS(beta,xvec,zvec,pmat,v0);
    external proc rf;
 
 /* Step 1: Initialize */
-eps1=_VI_eps*(1-beta);      @ convergence criteria @
+eps1=_VI_eps*(1-beta_disc);      @ convergence criteria @
 
-_VI_beta=beta;
+_VI_beta_disc=beta_disc;
 
 nx=rows(xvec);   @ number of grid points in xvec @
 nz=rows(zvec);   @ number of grid points in zvec @
@@ -171,7 +175,7 @@ v2=zeros(nx,nz);    @ new policy function @
 dv=1;
 nc=0;
 
-if _VI_IP/=0; _VI_xvec=xvec;_VI_zvec=zvec;_VI_ymat=v0; _VI_pmat=pmat; _VI_beta=beta; endif;
+if _VI_IP/=0; _VI_xvec=xvec;_VI_zvec=zvec;_VI_ymat=v0; _VI_pmat=pmat; _VI_beta_disc=beta_disc; endif;
 if _VI_IP==2; _VI_der=zeros(nx,nz); for j (1,nz,1); _VI_der[.,j]=CSpline(xvec,v1[.,j],1,0|0); endfor; endif;
 if _VI_MPI==1; umat=zeros(nx,nz); v3=umat; endif;
 
@@ -191,22 +195,22 @@ do until (t>_VI_Max) or (dv<eps1) or (nc>_VI_nc); @ begin loop over value functi
                 do while (jmax-jmin)>2;       @ the next lines implement the binary search algorithm @
                     jl=floor((jmin+jmax)/2);
                     ju=jl+1;
-                    w[1]=rf(zvec[j],xvec[i],xvec[jl])+beta*(pmat[j,.]*(v1[jl,.]'));
-                    w[2]=rf(zvec[j],xvec[i],xvec[ju])+beta*(pmat[j,.]*(v1[ju,.]'));
+                    w[1]=rf(zvec[j],xvec[i],xvec[jl])+beta_disc*(pmat[j,.]*(v1[jl,.]'));
+                    w[2]=rf(zvec[j],xvec[i],xvec[ju])+beta_disc*(pmat[j,.]*(v1[ju,.]'));
                 if w[2]>w[1]; jmin=jl; else; jmax=ju; endif;
                 endo;
-                w[1]=rf(zvec[j],xvec[i],xvec[jmin])+beta*(pmat[j,.]*(v1[jmin,.]'));
-                if jmax>jmin;    w[2]=rf(zvec[j],xvec[i],xvec[jmin+1])+beta*(pmat[j,.]*(v1[jmin+1,.]')); else; w[2]=w[1]; endif;
-                w[3]=rf(zvec[j],xvec[i],xvec[jmax])+beta*(pmat[j,.]*(v1[jmax,.]'));
+                w[1]=rf(zvec[j],xvec[i],xvec[jmin])+beta_disc*(pmat[j,.]*(v1[jmin,.]'));
+                if jmax>jmin;    w[2]=rf(zvec[j],xvec[i],xvec[jmin+1])+beta_disc*(pmat[j,.]*(v1[jmin+1,.]')); else; w[2]=w[1]; endif;
+                w[3]=rf(zvec[j],xvec[i],xvec[jmax])+beta_disc*(pmat[j,.]*(v1[jmax,.]'));
                 js=maxindc(w);
                 if _VI_IP==0; v2[i,j]=w[js]; endif;               
                 js=jmin+js-1;
                if _VI_MPI==1; umat[i,j]=rf(zvec[j],xvec[i],xvec[js]); endif;
             else;    
                 jmin=js;
-                w[1]=rf(zvec[j],xvec[i],xvec[jmin])+beta*(pmat[j,.]*(v1[jmin,.]'));         
+                w[1]=rf(zvec[j],xvec[i],xvec[jmin])+beta_disc*(pmat[j,.]*(v1[jmin,.]'));         
                 for jl (jmin+1,nx,1);                
-                     w[2]=rf(zvec[j],xvec[i],xvec[jl])+beta*(pmat[j,.]*(v1[jl,.]'));
+                     w[2]=rf(zvec[j],xvec[i],xvec[jl])+beta_disc*(pmat[j,.]*(v1[jl,.]'));
                     if w[2]<=w[1]; js=jl-1; if _VI_IP==0; v2[i,j]=w[1]; endif; if _VI_MPI==1; umat[i,j]=rf(zvec[j],xvec[i],xvec[js]); endif; break; else; w[1]=w[2]; endif;                
                 endfor; 
             endif;
@@ -249,7 +253,7 @@ do until (t>_VI_Max) or (dv<eps1) or (nc>_VI_nc); @ begin loop over value functi
             for l (1,_VI_MPI_K,1);                
                 for i (1,nx,1);
                     for j (1,nz,1);
-                        v3[i,j]=umat[i,j]+beta*(pmat[j,.]*(v2[h2[i,j],.]'));
+                        v3[i,j]=umat[i,j]+beta_disc*(pmat[j,.]*(v2[h2[i,j],.]'));
                     endfor;
                 endfor;
                 v2=v3;
@@ -299,7 +303,7 @@ endp;
   2 Feburary 2008
   Alfred Maussner
 
-  Purpose: returns the rhs of the bellman equation rf(z0,x0,x1)+beta*pmat[z0,.]'v1[x1,.]'
+  Purpose: returns the rhs of the bellman equation rf(z0,x0,x1)+beta_disc*pmat[z0,.]'v1[x1,.]'
 
   usage: vij=_rhs_bellman(z0,x0,x1);
 
@@ -323,12 +327,12 @@ proc(1)=_rhs_bellman(z0,x0,x1);
     rhs=rf(_VI_zvec[z0],x0,x1);
     if _VI_IP==1;
         for j (1,m,1);
-            rhs=rhs+_VI_beta*_VI_pmat[z0,j]*LIP(_VI_xvec,_VI_ymat[.,j],x1);
+            rhs=rhs+_VI_beta_disc*_VI_pmat[z0,j]*LIP(_VI_xvec,_VI_ymat[.,j],x1);
         endfor;
     endif;
     if _VI_IP==2;
         for j (1,m,1);
-            rhs=rhs+_VI_beta*_VI_pmat[z0,j]*Splint(_VI_xvec,_VI_ymat[.,j],_VI_der[.,j],1,x1);
+            rhs=rhs+_VI_beta_disc*_VI_pmat[z0,j]*Splint(_VI_xvec,_VI_ymat[.,j],_VI_der[.,j],1,x1);
         endfor;
     endif;
 

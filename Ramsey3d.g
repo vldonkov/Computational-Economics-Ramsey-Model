@@ -34,10 +34,14 @@
 
 new; @ clear memory @
 
+#include SolveDSS.src
+#include Tools.src
+#include Integration.src
+
 /* Parameters of the model */
 alpha=0.27;                   @ elasticity of production with respect to capital    @
 delta=0.011;                  @ rate of capital depreciation                        @
-beta=0.994;                   @ discount factor: 6.5% annual rate of return on capital@
+beta_disc=0.994;              @ discount factor: 6.5% annual rate of return on capital@
 eta=2;                        @ elasticity of marginal utility                    @
 rho=0.90;
 sigma=0.0072;
@@ -65,7 +69,7 @@ output file=Ramsey3d_2lam1.txt reset;
 MyDate;
 ?"Parameters of the model:";
 ?"alpha = " ftos(alpha,"*.*lf",8,4);
-?"beta  = " ftos(beta, "*.*lf",8,4);
+?"beta_disc  = " ftos(beta_disc, "*.*lf",8,4);
 ?"delta = " ftos(delta,"*.*lf",8,4);
 ?"eta   = " ftos(eta,  "*.*lf",8,4);
 ?"rho   = " ftos(rho,  "*.*lf",8,4);
@@ -101,11 +105,11 @@ zmin_i=rho*ln(zmin)+sqrt(2)*sigma*(-1.650680123);
 zmax_i=rho*ln(zmax)+sqrt(2)*sigma*(1.650680123);
 
 
-kmin=((1-beta*(1-delta))/(alpha*beta*zmin))^(1/(alpha-1));
-kmax=((1-beta*(1-delta))/(alpha*beta*zmax))^(1/(alpha-1));
+kmin=((1-beta_disc*(1-delta))/(alpha*beta_disc*zmin))^(1/(alpha-1));
+kmax=((1-beta_disc*(1-delta))/(alpha*beta_disc*zmax))^(1/(alpha-1));
 
 /* Compute stationary solution of deterministic model and intialize the value function */
-kstar=((1- beta*(1-delta))/alpha*beta)^(1/(alpha-1));  @ stationary capital stock                          @
+kstar=((1- beta_disc*(1-delta))/alpha*beta_disc)^(1/(alpha-1));  @ stationary capital stock                          @
 cstar=kstar^alpha - delta*kstar;                       @ stationary level of consumption                   @
 
 
@@ -126,7 +130,7 @@ policy=arrayinit(lmax|nobs_e|nobs_e,0);
 
 /* Different ways to initialize v0, uncomment to try the others */
 nk=nvec[1];
-v0=rf(1,kstar,kstar)/(1-beta);  @ stationary solution @
+v0=rf(1,kstar,kstar)/(1-beta_disc);  @ stationary solution @
 v0=ones(nk,nz).*v0;
 
 @     v0=zeros(nk,nz); @        @ the zeros function  @
@@ -146,7 +150,7 @@ for l (1,lmax,1);
 
     /* Solve for the policy function */
     s1=hsec;
-    {v1,hmati}=SolveVIS(beta,kgrid,zgrid,pmat,v0);
+    {v1,hmati}=SolveVIS(beta_disc,kgrid,zgrid,pmat,v0);
     s1=hsec-s1;
     
     if _VI_IP/=0;
@@ -169,7 +173,7 @@ for l (1,lmax,1);
     emax=maxc(maxc(abs(eer)));
     tottime[l]=s1+s2;
     test="nk= " $+ ftos(nk,"*.*lf",10,0) $+  " Run time= " $+ etstr(s1+s2);
-    if _cumulative; test=test $+ "Cumulative run time= " $+etstr(sumc[tottime[1:l]) endif;
+    if _cumulative; test=test $+ "Cumulative run time= " $+etstr(sumc(tottime[1:l])); endif;
     test=test $+ " EER= " $+ ftos(emax,"*.*lf",10,8);
     output on;
     @?"_VI_IP= " ftos(_VI_IP,"*.*lf",2,0);@
@@ -257,7 +261,7 @@ proc(1)=Euler(kvec,zvec);
             k1=PF(kvec[i],zvec[j]);
             c0=zvec[j]*(kvec[i]^alpha)+(1-delta)*kvec[i]-k1;            
             rhs=GH_INT4(&GetRhs,sigma);
-			rhs=rhs*beta;
+			rhs=rhs*beta_disc;
             c1=(rhs^(-1/eta));
 			eer[i,j]=(c1/c0)-1;
         endfor;
