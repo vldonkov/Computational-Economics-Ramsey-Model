@@ -83,6 +83,9 @@ VI_zex=0; % stores information to write the value function as a function of
 VI_eps=0.01; % stopping criterium
 VI_Max=1000; % maximal number of iterations
 
+% Declaration of some global variables used throughout subroutines
+global z0 k1;
+
 
 % Open file and write initial information
 file = fopen("RamseyModel.txt","w");
@@ -111,6 +114,7 @@ fprintf(file,"Max  = %d\n",VI_Max);
 fprintf(file,"eps  = %.4f\n",VI_eps);
 fprintf(file,"stop = %d\n",VI_nc);
 fprintf(file,"IP   = %d\n",VI_IP);
+fprintf(file,"\n");
 fclose(file);
 
 
@@ -191,15 +195,65 @@ for l=1:lmax
         end
     end
     
-    %Continue here
-    
-    
+    % Computation of Euler equation residuals
+    N=nobs_e;
+    start_val=kmin_e;
+    inc=(kmax_e-kmin_e)/(nobs_e-1);
+    stop_val=(N-1)*inc + start_val;
+    kvec=start_val:inc:stop_val; 
+    start_val=0.95;
+    inc=0.1/(nobs_e-1);
+    stop_val=(N-1)*inc + start_val;
+    zvec=start_val:inc:stop_val;
+    z0=0;
+    k1=0;
+    eer=Euler(kvec,zvec);
+    emat(1:nobs_e,1:nobs_e,l)=eer;
+    emax=max(max(abs(eer)));
+    tottime(l)=s1+s2;
+    file = fopen("RamseyModel.txt","a+");
+    fprintf(file,"nk = %d\n",nk);
+    fprintf(file,"Run time = %d minutes and %.2f seconds\n",floor((s1+s2)/60),rem((s1+s2),60));
+    if cumulative
+        fprintf(file,"Cumulative run time = %d minutes and %.2f seconds\n",floor(sum(tottime(1:l))/60),rem(sum(tottime(1:l)),60));
+    end
+    fprintf(file,"EER = %e\n",emax);
+    fprintf(file,"\n");
+    fclose(file);
+    % computation of policy function
+    for i=1:nobs_e
+        for j=1:nobs_e
+            policy(i,j,l)=BLIP(kgrid,zgrid,hmat,kvec(i),zvec(j));
+        end
+    end
+    % New initial v0
+    if l<lmax
+        if nk==nvec(l+1)
+            v0=v1;
+        else
+            fprintf("\n")
+            tic;
+            nk1=nvec(l+1);
+            N=nk1;
+            start_val=kmin_g;
+            inc=(kmax_g-kmin_g)/(nk1-1);
+            stop_val=(N-1)*inc + start_val;
+            kgnew=start_val:inc:stop_val; 
+            kgnew(nk1)=kgrid(nk);
+            kgnew(1)=kgrid(1);
+            v0=zeros(nk1,nz);
+            for j=1:nz
+                fprintf("Compute new initial v0        %d\n",j)
+                v0(:,j)=LIP(kgrid,v1(:,j),kgnew);
+            end
+            s2=toc;
+        end
+    end 
 end
-
-
-
-
-
+save('emat.mat','emat');
+save('policy.mat','policy');
+save('kvec.mat','kvec');
+save('zvec.mat','zvec');
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -430,9 +484,20 @@ end
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 
-                        %Define the utility function
+                                %% Subroutines
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+% MarkovAR
+
+
+% VI_valuefunction
+
+
+% rhs_bellman
+
+
+% Definition of utility function
 
 function [c] = rf(z,k1,k2)
 
@@ -451,7 +516,71 @@ function [c] = rf(z,k1,k2)
 end
 
 
+% Euler equation residuals
 
+function [eer] = Euler(kvec,zvec)
 
-
+    global z0 k1;
     
+    n=length(kvec);
+    m=length(zvec);
+    eer=zeros(n,m);
+    
+    for i=1:n
+        for j=1:m
+            z0=rho*log(zvec(j));
+            k1=PF(kvec(i),zvec(j));
+            c0=zvec(j)*(kvec(i)^alpha)+(1-delta)*kvec(i)-k1;
+            rhs=GH_INT4(@GetRhs,sigma);
+            rhs=rhs*beta_disc;
+            c1=(rhs^(-1/eta));
+            eer(i,j)=(c1/c0)-1;
+        end
+    end
+
+end
+
+
+% Right-hand side of Euler equation
+function [a] = GetRhs(x)
+
+    global z0 k1;
+    
+    z1=z0+x; % note that z0=rho*ln(zj)
+    z1=exp(z1);
+    
+    k2=PF(k1,z1);
+    c2=z1*(k1^alpha)+(1-delta)*k1-k2;
+    
+    a=(c2^(-eta))*(1.-delta+alpha*z1*(k1^(alpha-1)));
+
+end
+
+
+% Policy function via linear interpolation
+
+function [knext] = PF(k,z)
+
+    knext=BLIP(kgrid,zgrid,hmat,k,z);
+
+end
+
+
+% GH_INT4
+
+
+% LIP
+
+
+% BLIP
+
+
+% GSS
+
+
+% MachEps
+
+
+
+
+
