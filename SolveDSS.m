@@ -482,22 +482,70 @@ function [v1,xz]=SolveVIS(beta_disc,xvec,zvec,pmat,v0)
 end
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 
                                 %% Subroutines
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-% MarkovAR
+
+%% MarkovAR
+
+function [zt,p] = MarkovAR(size,m,rho,sigma)
+    % Purpose: Approximate AR(1)-Process by Markov chain (Algorithm 12.2.1
+    % of Heer and Maussner, 2009)
+    %
+    % Input:    size:  scalar, the mulitple of the unconditional standard
+    %                  deviation of the AR(1) process used to define the
+    %                  grid size
+    %
+    %           m:     integer scalar, the number of grid points
+    %
+    %           rho:   scalar, the autoregressive parameter of the process
+    %
+    %           sigma: scalar, the standard deviation of the innovations
+    %
+    %
+    % Output:   z:  m x 1 vector, the grid approximating the process
+    %
+    %           p:  m x m matrix of transition probabilities
+
+    sigmaz=sqrt(sigma^2/(1-rho^2));
+    zbar=size*sigmaz;
+    N=m;
+    start_val=-zbar;
+    inc = 2*zbar/(m-1);
+    stop_val = (N-1)*inc + start_val;
+    zt=start_val:inc:stop_val;
+    
+    p=zeros(m);
+    i=1;
+    while i<=m
+        p(i,1)=normcdf((zt(1)-rho*zt(i)+(zt(2)-zt(1))/2)/sigma,0,1);
+        
+        j=2;
+        while j<=(m-1)
+            p(i,j)=normcdf((zt(j)-rho*zt(i)+(zt(j)-zt(j-1))/2)/sigma,0,1)-...
+                normcdf((zt(j)-rho*zt(i)-(zt(j)-zt(j-1))/2)/sigma,0,1);
+            j=j+1;
+        end
+        p(i,m)=1-sum(p(i,1:m-1)');
+        i=i+1;
+    end
+    
+end
+
+%% VI_valuefunction
 
 
-% VI_valuefunction
+%% rhs_bellman
 
 
-% rhs_bellman
-
-
-% Definition of utility function
+%% Definition of utility function
 
 function [c] = rf(z,k1,k2)
 
@@ -516,7 +564,7 @@ function [c] = rf(z,k1,k2)
 end
 
 
-% Euler equation residuals
+%% Euler equation residuals
 
 function [eer] = Euler(kvec,zvec)
 
@@ -541,7 +589,7 @@ function [eer] = Euler(kvec,zvec)
 end
 
 
-% Right-hand side of Euler equation
+%% Right-hand side of Euler equation
 function [a] = GetRhs(x)
 
     global z0 k1;
@@ -557,7 +605,7 @@ function [a] = GetRhs(x)
 end
 
 
-% Policy function via linear interpolation
+%% Policy function via linear interpolation
 
 function [knext] = PF(k,z)
 
@@ -566,19 +614,19 @@ function [knext] = PF(k,z)
 end
 
 
-% GH_INT4
+%% GH_INT4
 
 
-% LIP
+%% LIP
 
 
-% BLIP
+%% BLIP
 
 
-% GSS
+%% GSS
 
 
-% MachEps
+%% MachEps
 
 
 
